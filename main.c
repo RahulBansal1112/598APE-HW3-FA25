@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <omp.h>
 
 float tdiff(struct timeval *start, struct timeval *end) {
   return (end->tv_sec - start->tv_sec) + 1e-6 * (end->tv_usec - start->tv_usec);
@@ -17,10 +18,25 @@ unsigned long long randomU64() {
   return seed;
 }
 
+unsigned long long randomU64_thread(unsigned long long *thread_seed) {
+  *thread_seed ^= (*thread_seed << 21);
+  *thread_seed ^= (*thread_seed >> 35);
+  *thread_seed ^= (*thread_seed << 4);
+  return *thread_seed;
+}
+
 double randomDouble() {
   unsigned long long next = randomU64();
   next >>= (64 - 26);
   unsigned long long next2 = randomU64();
+  next2 >>= (64 - 26);
+  return ((next << 27) + next2) / (double)(1LL << 53);
+}
+
+double randomDouble_thread(unsigned long long *thread_seed) {
+  unsigned long long next = randomU64_thread(thread_seed);
+  next >>= (64 - 26);
+  unsigned long long next2 = randomU64_thread(thread_seed);
   next2 >>= (64 - 26);
   return ((next << 27) + next2) / (double)(1LL << 53);
 }
@@ -68,21 +84,44 @@ double calculateMagnetization() {
   return mag / (L * L);
 }
 
-void metropolisHastingsStep() {
-  int i = (int)(randomDouble() * L);
-  int j = (int)(randomDouble() * L);
+void metropolisHastingsStep(int tid, int num_threads, unsigned long long *thread_seed) {
+  // int i = (int)(randomDouble() * L);
+  // int j = (int)(randomDouble() * L);
 
-  double E_before = calculateTotalEnergy();
-  lattice[i][j] *= -1;
-  double E_after = calculateTotalEnergy();
-  double dE = E_after - E_before;
+  // double E_before = calculateTotalEnergy();
+  // lattice[i][j] *= -1;
+  // double E_after = calculateTotalEnergy();
+  // double dE = E_after - E_before;
 
+  // if (dE <= 0.0) {
+  //   return;
+  // }
+
+  // double prob = exp(-dE / T);
+  // if (randomDouble() >= prob) {
+  //   lattice[i][j] *= -1;
+  // }
+  int rows_per_thread = L / num_threads;
+  int row_start = tid * rows_per_thread;
+  int row_end = (tid == num_threads - 1) ? L : (tid + 1) * rows_per_thread;
+
+  int i = (int)(randomDouble_thread(thread_seed) * L);
+  int j = (int)(randomDouble_thread(thread_seed) * (row_end - row_start) + row_start);
+  
+  int spin = lattice[i][j];
+  int up = lattice[(i - 1 + L) % L][j];
+  int down = lattice[(i + 1) % L][j];
+  int left = lattice[i][(j - 1 + L) % L];
+  int right = lattice[i][(j + 1) % L];
+  
+  double dE = 2.0 * J * spin * (up + down + left + right);
+  
   if (dE <= 0.0) {
     return;
   }
 
   double prob = exp(-dE / T);
-  if (randomDouble() >= prob) {
+  if (randomDouble_thread(thread_seed) >= prob) {
     lattice[i][j] *= -1;
   }
 }
@@ -207,8 +246,16 @@ int main(int argc, const char **argv) {
   struct timeval start, end;
   gettimeofday(&start, NULL);
 
-  for (int step = 0; step < steps; step++) {
-    metropolisHastingsStep();
+  // #pragma omp parallel for
+  #pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+    int num_threads = omp_get_num_threads();
+    unsigned long long thread_seed = 100;
+    #pragma omp for schedule(static)
+    for (int step = 0; step < steps; step++) {
+      metropolisHastingsStep(tid, num_threads, &thread_seed);
+    }
   }
 
   gettimeofday(&end, NULL);
