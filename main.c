@@ -107,12 +107,14 @@ void metropolisHastingsStep(int tid, int num_threads, unsigned long long *thread
 
   int i = (int)(randomDouble_thread(thread_seed) * L);
   int j = (int)(randomDouble_thread(thread_seed) * (row_end - row_start) + row_start);
+
+
   
   int spin = lattice[i][j];
-  int up = lattice[(i - 1 + L) % L][j];
-  int down = lattice[(i + 1) % L][j];
-  int left = lattice[i][(j - 1 + L) % L];
-  int right = lattice[i][(j + 1) % L];
+  int up = lattice[(i > 0) ? i - 1 : L - 1][j];
+  int down = lattice[(i < L - 1) ? i + 1 : 0][j];
+  int left = lattice[i][(j > 0) ? j - 1 : L - 1];
+  int right = lattice[i][(j < L - 1) ? j + 1 : 0];
   
   double dE = 2.0 * J * spin * (up + down + left + right);
   
