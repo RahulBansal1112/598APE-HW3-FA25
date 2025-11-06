@@ -120,6 +120,7 @@ void metropolisHastingsStep(int tid, int num_threads, unsigned long long *thread
     return;
   }
 
+  
   double prob = exp(-dE / T);
   if (randomDouble_thread(thread_seed) >= prob) {
     lattice[i][j] *= -1;
@@ -246,12 +247,11 @@ int main(int argc, const char **argv) {
   struct timeval start, end;
   gettimeofday(&start, NULL);
 
-  // #pragma omp parallel for
   #pragma omp parallel
   {
     int tid = omp_get_thread_num();
     int num_threads = omp_get_num_threads();
-    unsigned long long thread_seed = 100;
+    unsigned long long thread_seed = 100 + tid;
     #pragma omp for schedule(static)
     for (int step = 0; step < steps; step++) {
       metropolisHastingsStep(tid, num_threads, &thread_seed);
