@@ -69,18 +69,39 @@ double calculateMagnetization() {
 }
 
 void metropolisHastingsStep() {
+  // int i = (int)(randomDouble() * L);
+  // int j = (int)(randomDouble() * L);
+
+  // double E_before = calculateTotalEnergy();
+  // lattice[i][j] *= -1;
+  // double E_after = calculateTotalEnergy();
+  // double dE = E_after - E_before;
+
+  // if (dE <= 0.0) {
+  //   return;
+  // }
+
+  // double prob = exp(-dE / T);
+  // if (randomDouble() >= prob) {
+  //   lattice[i][j] *= -1;
+  // }
+
   int i = (int)(randomDouble() * L);
   int j = (int)(randomDouble() * L);
-
-  double E_before = calculateTotalEnergy();
-  lattice[i][j] *= -1;
-  double E_after = calculateTotalEnergy();
-  double dE = E_after - E_before;
-
+  
+  int spin = lattice[i][j];
+  int up = lattice[(i - 1 + L) % L][j];
+  int down = lattice[(i + 1) % L][j];
+  int left = lattice[i][(j - 1 + L) % L];
+  int right = lattice[i][(j + 1) % L];
+  
+  double dE = 2.0 * J * spin * (up + down + left + right);
+  
   if (dE <= 0.0) {
     return;
   }
 
+  
   double prob = exp(-dE / T);
   if (randomDouble() >= prob) {
     lattice[i][j] *= -1;
